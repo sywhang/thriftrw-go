@@ -24,13 +24,18 @@ import (
 	"fmt"
 	"io"
 
+	"go.uber.org/thriftrw/internal/iface"
 	"go.uber.org/thriftrw/protocol/binary"
+	"go.uber.org/thriftrw/protocol/stream"
 	"go.uber.org/thriftrw/wire"
 )
 
 // Binary implements the Thrift Binary Protocol.
 // Binary can be cast up to EnvelopeAgnosticProtocol to support DecodeRequest.
 var Binary Protocol
+
+// BinaryStreamer implements a streaming versino of the Thrift Binary Protocol
+var BinaryStreamer stream.Protocol
 
 // EnvelopeAgnosticBinary implements the Thrift Binary Protocol, using
 // DecodeRequest for request bodies that may or may not have an envelope.
@@ -107,7 +112,9 @@ func init() {
 	EnvelopeAgnosticBinary = binaryProtocol{}
 }
 
-type binaryProtocol struct{}
+type binaryProtocol struct {
+	iface.Private
+}
 
 func (binaryProtocol) Encode(v wire.Value, w io.Writer) error {
 	writer := binary.BorrowWriter(w)
@@ -133,6 +140,16 @@ func (binaryProtocol) DecodeEnveloped(r io.ReaderAt) (wire.Envelope, error) {
 	reader := binary.NewReader(r)
 	e, err := reader.ReadEnveloped()
 	return e, err
+}
+
+// stub
+func (binaryProtocol) Writer(w io.Writer) stream.Writer {
+	return nil
+}
+
+func (binaryProtocol) Reader(r io.Reader) stream.Reader {
+	sReader := binary.NewStreamReader(r)
+	return &sReader
 }
 
 // DecodeRequest specializes Decode and replaces DecodeEnveloped for the
